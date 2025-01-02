@@ -21,6 +21,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'user_type',
+        'github_link',
+        'phone',
     ];
 
     /**
@@ -44,5 +47,20 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function gigs()
+    {
+        return $this->hasMany(Gig::class);
+    }
+
+    public function ordersAsBuyer()
+    {
+        return $this->hasMany(Order::class, 'buyer_id');
+    }
+
+    public function ordersAsSeller()
+    {
+        return $this->hasMany(Order::class, 'seller_id');
     }
 }
