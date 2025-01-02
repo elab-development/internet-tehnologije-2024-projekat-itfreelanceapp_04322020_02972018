@@ -13,7 +13,7 @@ return new class extends Migration
     {
 
         Schema::table('gigs', function (Blueprint $table) {
-            $table->unsignedBigInteger('user_id')->after('revisions');
+            $table->unsignedBigInteger('user_id')->after('feedback');
             $table->unsignedBigInteger('category_id')->after('user_id');
 
             $table->foreign('user_id')
