@@ -30,7 +30,10 @@ class OrderFactory extends Factory
         $gig = Gig::inRandomOrder()->first();
         $seller = $gig->user;
 
-        $buyer = User::where('id', '!=', $seller->id)->inRandomOrder()->first();
+        $buyer = User::where('id', '!=', $seller->id)
+            ->where('user_type', '!=', 'administrator')
+            ->inRandomOrder()
+            ->first();
 
         return [
             'status' => $this->faker->randomElement(['pending', 'completed', 'cancelled']),

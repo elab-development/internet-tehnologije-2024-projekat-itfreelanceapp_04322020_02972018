@@ -74,12 +74,14 @@ class GigFactory extends Factory
 
         $title = $this->faker->randomElement($titles[$category->name]);
 
+        $user = User::where('user_type', '!=', 'administrator')->inRandomOrder()->first();
+
         return [
             'title' => $title,
             'description' => $this->faker->paragraph(),
             'price' => $this->faker->randomFloat(2, 50, 500), 
             'delivery_time' => $this->faker->numberBetween(1, 30), 
-            'user_id' => User::inRandomOrder()->first()->id, 
+            'user_id' => $user->id, 
             'category_id' => $category->id, 
             'rating' => $this->faker->randomFloat(1, 3, 5), 
             'feedback' => $this->faker->sentence(10), 
