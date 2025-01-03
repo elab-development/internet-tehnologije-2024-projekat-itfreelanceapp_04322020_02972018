@@ -83,7 +83,7 @@ class GigFactory extends Factory
             'delivery_time' => $this->faker->numberBetween(1, 30), 
             'user_id' => $user->id, 
             'category_id' => $category->id, 
-            'rating' => $this->faker->randomFloat(1, 3, 5), 
+            'rating' => $this->faker->numberBetween(3, 5),
             'feedback' => $this->faker->sentence(10), 
         ];
     }
