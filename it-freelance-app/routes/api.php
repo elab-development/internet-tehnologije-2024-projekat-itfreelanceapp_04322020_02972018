@@ -20,5 +20,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders', [OrderController::class, 'store']); 
     Route::patch('/orders/{id}/status', [OrderController::class, 'updateStatus']);
 
+    Route::get('/admin/orders/export', [OrderController::class, 'exportOrdersToExcel']);
+    Route::get('/admin/orders/metrics', [OrderController::class, 'calculateOrderMetrics']);
+
     Route::post('/logout', [AuthController::class, 'logout']);
 });

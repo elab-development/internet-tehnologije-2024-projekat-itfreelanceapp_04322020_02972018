@@ -7,6 +7,8 @@ use App\Models\Gig;
 use App\Http\Resources\OrderResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\OrdersExport;
 
 class OrderController extends Controller
 {
@@ -16,6 +18,10 @@ class OrderController extends Controller
     public function index()
     {
         $user = Auth::user();
+
+        if ($user->user_type === 'administrator') {
+            return OrderResource::collection(Order::all());
+        }
 
         if ($user->user_type !== 'buyer') {
             return response()->json(['error' => 'Only buyers can view orders.'], 403);
@@ -32,6 +38,10 @@ class OrderController extends Controller
     {
         $user = Auth::user();
         $order = Order::findOrFail($id);
+
+        if ($user->user_type === 'administrator') {
+            return new OrderResource($order);
+        }
 
         if ($user->user_type !== 'buyer' || $order->buyer_id !== $user->id) {
             return response()->json(['error' => 'Unauthorized to view this order.'], 403);
@@ -90,5 +100,45 @@ class OrderController extends Controller
         $order->update(['status' => $validated['status']]);
 
         return new OrderResource($order);
+    }
+
+    /**
+     * Export all orders to an Excel file (only for administrators).
+     */
+    public function exportOrdersToExcel()
+    {
+        $user = Auth::user();
+
+        if ($user->user_type !== 'administrator') {
+            return response()->json(['error' => 'Only administrators can export orders.'], 403);
+        }
+
+        return Excel::download(new OrdersExport, 'orders.xlsx');
+    }
+
+    /**
+     * Calculate order metrics (only for administrators).
+     */
+    public function calculateOrderMetrics()
+    {
+        $user = Auth::user();
+
+        if ($user->user_type !== 'administrator') {
+            return response()->json(['error' => 'Only administrators can view metrics.'], 403);
+        }
+
+        $totalOrders = Order::count();
+        $completedOrders = Order::where('status', 'completed')->count();
+        $pendingOrders = Order::where('status', 'pending')->count();
+        $cancelledOrders = Order::where('status', 'cancelled')->count();
+        $totalRevenue = Order::where('status', 'completed')->with('gig')->get()->sum(fn ($order) => $order->gig->price);
+
+        return response()->json([
+            'total_orders' => $totalOrders,
+            'completed_orders' => $completedOrders,
+            'pending_orders' => $pendingOrders,
+            'cancelled_orders' => $cancelledOrders,
+            'total_revenue' => $totalRevenue
+        ]);
     }
 }
