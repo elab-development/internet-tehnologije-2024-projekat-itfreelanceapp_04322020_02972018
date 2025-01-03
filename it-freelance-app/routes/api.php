@@ -15,10 +15,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/gigs/{id}/rating', [GigController::class, 'updateRatingFeedback']);
     Route::delete('/gigs/{id}', [GigController::class, 'destroy']);
 
-    Route::get('/orders', [OrderController::class, 'index']); 
-    Route::get('/orders/{id}', [OrderController::class, 'show']); 
-    Route::post('/orders', [OrderController::class, 'store']); 
     Route::patch('/orders/{id}/status', [OrderController::class, 'updateStatus']);
+
+    Route::resource('orders', OrderController::class)->only([
+        'index', 'show', 'store'
+    ]);
 
     Route::get('/admin/orders/export', [OrderController::class, 'exportOrdersToExcel']);
     Route::get('/admin/orders/metrics', [OrderController::class, 'calculateOrderMetrics']);
