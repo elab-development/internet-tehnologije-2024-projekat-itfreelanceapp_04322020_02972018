@@ -113,7 +113,7 @@ class GigController extends Controller
         $user = Auth::user();
         $gig = Gig::findOrFail($id);
 
-        if ($user->user_type !== 'seller' || $gig->user_id !== $user->id) {
+        if ($user->user_type !== 'buyer') {
             return response()->json(['error' => 'Unauthorized to update rating and feedback.'], 403);
         }
 
