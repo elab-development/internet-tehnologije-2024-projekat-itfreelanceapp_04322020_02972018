@@ -13,7 +13,7 @@ use App\Exports\OrdersExport;
 class OrderController extends Controller
 {
     /**
-     * Display a list of the buyer's orders.
+     * Display a list of orders (buyers see their orders, sellers see orders for their gigs).
      */
     public function index()
     {
@@ -23,12 +23,17 @@ class OrderController extends Controller
             return OrderResource::collection(Order::all());
         }
 
-        if ($user->user_type !== 'buyer') {
-            return response()->json(['error' => 'Only buyers can view orders.'], 403);
+        if ($user->user_type === 'buyer') {
+            $orders = $user->ordersAsBuyer;
+            return OrderResource::collection($orders);
         }
 
-        $orders = $user->ordersAsBuyer;
-        return OrderResource::collection($orders);
+        if ($user->user_type === 'seller') {
+            $orders = Order::where('seller_id', $user->id)->get();
+            return OrderResource::collection($orders);
+        }
+
+        return response()->json(['error' => 'Unauthorized to view orders.'], 403);
     }
 
     /**
@@ -82,20 +87,34 @@ class OrderController extends Controller
     }
 
     /**
-     * Update the status of an order (only for the buyer who created it).
+     * Update the status of an order (for both buyers and sellers).
      */
     public function updateStatus(Request $request, $id)
     {
         $user = Auth::user();
         $order = Order::findOrFail($id);
 
-        if ($user->user_type !== 'buyer' || $order->buyer_id !== $user->id) {
+        // Check if user is a buyer updating their own order
+        $isBuyer = $user->user_type === 'buyer' && $order->buyer_id === $user->id;
+        
+        // Check if user is a seller updating an order for their gig
+        $isSeller = $user->user_type === 'seller' && $order->seller_id === $user->id;
+        
+        // Allow administrators to update any order
+        $isAdmin = $user->user_type === 'administrator';
+        
+        if (!$isBuyer && !$isSeller && !$isAdmin) {
             return response()->json(['error' => 'Unauthorized to update this order.'], 403);
         }
 
         $validated = $request->validate([
             'status' => 'required|in:pending,completed,cancelled',
         ]);
+
+        // Additional validation for seller permissions
+        if ($isSeller && !in_array($validated['status'], ['completed', 'cancelled'])) {
+            return response()->json(['error' => 'Sellers can only mark orders as completed or cancelled.'], 403);
+        }
 
         $order->update(['status' => $validated['status']]);
 
@@ -140,5 +159,20 @@ class OrderController extends Controller
             'cancelled_orders' => $cancelledOrders,
             'total_revenue' => $totalRevenue
         ]);
+    }
+
+    /**
+     * Display a list of orders for gigs created by the authenticated seller.
+     */
+    public function sellerOrders()
+    {
+        $user = Auth::user();
+
+        if ($user->user_type !== 'seller') {
+            return response()->json(['error' => 'Only sellers can access this resource'], 403);
+        }
+
+        $orders = Order::where('seller_id', $user->id)->get();
+        return OrderResource::collection($orders);
     }
 }

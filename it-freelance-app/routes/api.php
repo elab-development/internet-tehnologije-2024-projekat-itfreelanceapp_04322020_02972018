@@ -14,6 +14,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/gigs/{id}', [GigController::class, 'update']);
     Route::patch('/gigs/{id}/rating', [GigController::class, 'updateRatingFeedback']);
     Route::delete('/gigs/{id}', [GigController::class, 'destroy']);
+    
+    // Route for sellers to view only their own gigs
+    Route::get('/my-gigs', [GigController::class, 'myGigs']);
+
+    // Route for sellers to view orders for their gigs
+    Route::get('/seller-orders', [OrderController::class, 'sellerOrders']);
 
     Route::patch('/orders/{id}/status', [OrderController::class, 'updateStatus']);
 

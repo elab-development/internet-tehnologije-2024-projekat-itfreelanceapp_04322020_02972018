@@ -36,6 +36,21 @@ class GigController extends Controller
     }
 
     /**
+     * Display gigs created by the authenticated seller.
+     * This route is specifically for sellers to manage their own gigs.
+     */
+    public function myGigs()
+    {
+        $user = Auth::user();
+
+        if ($user->user_type !== 'seller') {
+            return response()->json(['error' => 'Only sellers can access this resource'], 403);
+        }
+
+        return GigResource::collection($user->gigs);
+    }
+
+    /**
      * Display a specific gig only if authorized.
      */
     public function show($id)
@@ -70,12 +85,25 @@ class GigController extends Controller
             'description' => 'required|string',
             'price' => 'required|numeric',
             'delivery_time' => 'required|integer',
-            'category_id' => 'required|exists:categories,id',
+            'category' => 'required|string',
         ]);
 
-        $gig = Gig::create(array_merge($validated, [
+        // Find the category ID from the category name or create it
+        $category = \App\Models\Category::where('name', $validated['category'])->first();
+        
+        if (!$category) {
+            // If category doesn't exist, create it
+            $category = \App\Models\Category::create(['name' => $validated['category']]);
+        }
+
+        $gig = Gig::create([
+            'title' => $validated['title'],
+            'description' => $validated['description'],
+            'price' => $validated['price'],
+            'delivery_time' => $validated['delivery_time'],
+            'category_id' => $category->id,
             'user_id' => $user->id,
-        ]));
+        ]);
 
         return new GigResource($gig);
     }
