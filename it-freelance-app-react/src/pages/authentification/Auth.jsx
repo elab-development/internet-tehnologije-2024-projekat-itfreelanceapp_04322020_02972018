@@ -145,7 +145,7 @@ const Auth = () => {
           navigate('/seller-home', { replace: true });
           break;
         case 'administrator':
-          navigate('/admin-home', { replace: true });
+          navigate('/administrator-home', { replace: true });
           break;
         default:
           navigate('/buyer-home', { replace: true });
