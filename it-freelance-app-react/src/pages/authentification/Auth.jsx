@@ -314,7 +314,9 @@ const Auth = () => {
             color: '#000',
             position: 'relative',
             width: '100%',
-            maxWidth: '500px'
+            maxWidth: '500px',
+            marginTop: '50px',
+            marginBottom: '50px'
           }}
         >
           {/* Logo */}
