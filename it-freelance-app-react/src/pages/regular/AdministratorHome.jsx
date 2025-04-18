@@ -5,7 +5,6 @@ import animationData from '../../animations/animation5.json';
 import Slider from '../../components/Slider';
 
 const AdministratorHome = () => {
-  const [user, setUser] = useState(null);
   const [text, setText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [delta, setDelta] = useState(200 - Math.random() * 100);
@@ -13,62 +12,50 @@ const AdministratorHome = () => {
   const [isComplete, setIsComplete] = useState(false);
 
   // Memoize animation options for better performance
-  const animationOptions = useMemo(() => ({
-    rendererSettings: {
-      preserveAspectRatio: 'xMidYMid slice',
-      clearCanvas: false,
-      progressiveLoad: true,
-      hideOnTransparent: true,
-    },
-    loop: true,
-    autoplay: true,
-  }), []);
+  const animationOptions = useMemo(
+    () => ({
+      rendererSettings: {
+        preserveAspectRatio: 'xMidYMid slice',
+        clearCanvas: false,
+        progressiveLoad: true,
+        hideOnTransparent: true,
+      },
+      loop: true,
+      autoplay: true,
+    }),
+    []
+  );
 
   useEffect(() => {
-    const userData = sessionStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
-  }, []);
+    const ticker = setInterval(() => {
+      // Typing and deleting logic inlined
+      if (!isDeleting && text === fullText) {
+        setIsComplete(true);
+        setIsDeleting(true);
+        setDelta(2000); // Pause at the end before deleting
+        return;
+      }
 
-  useEffect(() => {
-    let ticker = setInterval(() => {
-      tick();
+      if (isDeleting && text === '') {
+        setIsDeleting(false);
+        setIsComplete(false);
+        setDelta(500); // Pause before typing again
+        return;
+      }
+
+      if (!isDeleting) {
+        setText(prev => fullText.substring(0, prev.length + 1));
+        setDelta(150); // Typing speed
+      } else {
+        setText(prev => prev.substring(0, prev.length - 1));
+        setDelta(50); // Faster when deleting
+      }
     }, delta);
 
     return () => {
       clearInterval(ticker);
     };
-  }, [text, isDeleting, delta, isComplete]);
-
-  const tick = () => {
-    // Current text is full
-    if (!isDeleting && text === fullText) {
-      setIsComplete(true);
-      setIsDeleting(true);
-      setDelta(2000); // Pause at the end before deleting
-      return;
-    }
-
-    // Finished deleting
-    if (isDeleting && text === '') {
-      setIsDeleting(false);
-      setIsComplete(false);
-      setDelta(500); // Pause before typing again
-      return;
-    }
-
-    // Typing out
-    if (!isDeleting) {
-      setText(prev => fullText.substring(0, prev.length + 1));
-      setDelta(150); // Typing speed
-    } 
-    // Deleting
-    else {
-      setText(prev => prev.substring(0, prev.length - 1));
-      setDelta(50); // Faster when deleting
-    }
-  };
+  }, [text, isDeleting, delta, fullText]);
 
   return (
     <Box
@@ -76,10 +63,10 @@ const AdministratorHome = () => {
         position: 'relative',
         backgroundColor: '#fff',
         minHeight: '100vh',
-        overflow: 'hidden'
+        overflow: 'hidden',
       }}
     >
-      {/* Background Animation - with performance optimizations */}
+      {/* Background Animation */}
       <Box
         sx={{
           position: 'fixed',
@@ -90,14 +77,14 @@ const AdministratorHome = () => {
           zIndex: 0,
           opacity: 0.05,
           transform: 'scale(1.2)',
-          pointerEvents: 'none'
+          pointerEvents: 'none',
         }}
       >
         <Player
           src={animationData}
           {...animationOptions}
-          style={{ 
-            width: '100%', 
+          style={{
+            width: '100%',
             height: '100%',
             willChange: 'transform',
           }}
@@ -105,7 +92,9 @@ const AdministratorHome = () => {
       </Box>
 
       {/* Content Container */}
-      <Container sx={{ pt: 10, pb: 4, textAlign: 'center', position: 'relative', zIndex: 1 }}>
+      <Container
+        sx={{ pt: 10, pb: 4, textAlign: 'center', position: 'relative', zIndex: 1 }}
+      >
         <Typography
           variant="h2"
           sx={{
@@ -129,9 +118,9 @@ const AdministratorHome = () => {
               animation: 'blink-caret 0.8s step-end infinite',
               '@keyframes blink-caret': {
                 'from, to': { opacity: 0 },
-                '50%': { opacity: 1 }
-              }
-            }
+                '50%': { opacity: 1 },
+              },
+            },
           }}
         >
           {text}
@@ -143,24 +132,24 @@ const AdministratorHome = () => {
             fontWeight: 400,
             fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' },
             letterSpacing: '0.01em',
-            opacity: 0.8
+            opacity: 0.8,
           }}
         >
           Manage and monitor your freelance platform.
         </Typography>
       </Container>
 
-      <Container 
-        sx={{ 
-          mt: 6, 
-          mb: 8, 
-          position: 'relative', 
+      <Container
+        sx={{
+          mt: 6,
+          mb: 8,
+          position: 'relative',
           zIndex: 1,
           backgroundColor: 'rgba(255, 255, 255, 0.8)',
           backdropFilter: 'blur(8px)',
           borderRadius: 4,
           p: 3,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
+          boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
         }}
       >
         <Slider />
@@ -169,4 +158,4 @@ const AdministratorHome = () => {
   );
 };
 
-export default AdministratorHome; 
+export default AdministratorHome;
