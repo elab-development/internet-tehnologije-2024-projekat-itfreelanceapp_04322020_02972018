@@ -82,7 +82,7 @@ const Weather = () => {
             }}>
               <Box>
                 <Typography variant="h3" fontWeight="bold">
-                  {Math.round(weather.temperature)}°{weather.temperatureUnit}
+                  {Math.round(weather.temperature)}{weather.temperatureUnit}
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
                   Feels like {Math.round(weather.apparentTemperature)}°
@@ -96,7 +96,7 @@ const Weather = () => {
                 <Typography variant="body2" fontWeight="medium" textAlign="right">
                   {weather.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" textAlign="right">
+                <Typography variant="body2" color="text.secondary" textAlign="right" sx={{ marginLeft:'30px' }}>
                   {weather.time.toLocaleDateString([], { 
                     weekday: 'long', 
                     year: 'numeric', 
@@ -107,7 +107,7 @@ const Weather = () => {
               </Box>
             </Box>
             
-            <Box sx={{ position: 'relative', height: 140, width: '100%', my: 2 }}>
+            <Box sx={{ position: 'relative', height: 140, width: '100%', my: 2, marginBottom: '80px', marginTop:'-50px' }}>
               <Player
                 src={getAnimationForWeather(weather.weatherType)}
                 autoplay
