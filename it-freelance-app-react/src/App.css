@@ -1,0 +1,156 @@
+/* Auth.css */
+
+.auth-logo {
+  max-width: 150px;
+  height: auto;
+}
+
+/* Lottie animation containers */
+.lottie-top-left,
+.lottie-top-right,
+.lottie-bottom-left,
+.lottie-bottom-right {
+  position: absolute;
+  pointer-events: none; /* Allow interactions to pass through */
+}
+
+.lottie-top-left {
+  top: 0;
+  left: 0;
+  transform: rotate(180deg);
+}
+
+.lottie-top-right {
+  top: 0;
+  right: 0;
+  transform: rotate(180deg);
+}
+
+.lottie-bottom-left {
+  bottom: 0;
+  left: 0;
+}
+
+.lottie-bottom-right {
+  bottom: 0;
+  right: 0;
+}
+
+/* src/App.css */
+@import url('https://fonts.googleapis.com/css2?family=Jockey+One&display=swap');
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Jockey One', sans-serif;
+  background-color: #fff;
+  /* Force scrollbar to always show */
+  overflow-x: auto;
+}
+
+/* Custom Scrollbar Styling - Global */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+div::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+div::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  background: #ffffff;
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+div::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background: #000000;
+  border: 2px solid #ffffff;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+div::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
+  background: #333333;
+}
+
+/* Hide scrollbar arrows/buttons and corner */
+html::-webkit-scrollbar-button,
+body::-webkit-scrollbar-button,
+div::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button,
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner,
+div::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-corner {
+  display: none !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  width: 0 !important;
+  background: transparent !important;
+}
+
+/* Firefox scrollbar - hide buttons */
+html, body, div, * {
+  scrollbar-width: thin;
+  scrollbar-color: #000000 #ffffff;
+}
+
+/* MS Edge and IE */
+html, body {
+  -ms-overflow-style: none;
+}
+
+/* Footer specific styles */
+footer {
+  position: relative;
+}
+
+footer::before,
+footer::after {
+  display: none !important;
+}
+
+footer * {
+  position: relative;
+}
+
+footer *::before,
+footer *::after {
+  display: none !important;
+}
+
+/* Additional scrollbar overrides for all browsers */
+#root {
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Slick Slider Dots */
+.slick-dots li button:before {
+  color: #000;
+}
+.slick-dots li.slick-active button:before {
+  color: #000;
+  opacity: 1;
+}
+
+/* Blink caret animation for cursor effects */
+@keyframes blink-caret {
+  from, to { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+/* You can add additional global or responsive styles as needed */
