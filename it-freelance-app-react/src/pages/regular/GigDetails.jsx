@@ -13,7 +13,8 @@ import {
   Skeleton,
   Avatar,
   Stack,
-  IconButton
+  IconButton,
+  Link
 } from '@mui/material';
 import { Player } from '@lottiefiles/react-lottie-player';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -21,6 +22,8 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
+import GitHubIcon from '@mui/icons-material/GitHub';
+import PhoneIcon from '@mui/icons-material/Phone';
 import animationData from '../../animations/animation3.json';
 
 const GigDetails = () => {
@@ -178,7 +181,14 @@ const GigDetails = () => {
       </Container>
     );
   }
-  
+
+  // Normalize optional contact fields
+  const rawGithub = gig?.user?.github_link || '';
+  const githubUrl = rawGithub
+    ? (rawGithub.startsWith('http://') || rawGithub.startsWith('https://') ? rawGithub : `https://${rawGithub}`)
+    : null;
+  const phone = gig?.user?.phone || '';
+
   return (
     <Box
       sx={{
@@ -417,6 +427,38 @@ const GigDetails = () => {
                   <Typography variant="body2" sx={{ color: '#000' }}>
                     Professional {gig.category} Expert
                   </Typography>
+
+                  {/* New: GitHub link + phone */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
+                    <IconButton
+                      component={githubUrl ? 'a' : 'button'}
+                      href={githubUrl || undefined}
+                      target={githubUrl ? '_blank' : undefined}
+                      rel={githubUrl ? 'noopener noreferrer' : undefined}
+                      aria-label="GitHub profile"
+                      disabled={!githubUrl}
+                      sx={{ color: '#000' }}
+                    >
+                      <GitHubIcon />
+                    </IconButton>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <PhoneIcon sx={{ fontSize: 18, color: '#000' }} />
+                      {phone ? (
+                        <Link
+                          href={`tel:${phone}`}
+                          underline="none"
+                          sx={{ color: '#000', fontWeight: 500, '&:hover': { textDecoration: 'underline' } }}
+                        >
+                          {phone}
+                        </Link>
+                      ) : (
+                        <Typography variant="body2" sx={{ color: '#000', opacity: 0.7 }}>
+                          N/A
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
                 </Box>
               </Box>
             </Box>
@@ -495,4 +537,4 @@ const GigDetails = () => {
   );
 };
 
-export default GigDetails; 
+export default GigDetails;

@@ -26,6 +26,8 @@ class GigResource extends JsonResource
             'user' => [
                 'id' => $this->user->id,
                 'name' => $this->user->name,
+                'github_link' => $this->user->github_link,
+                'phone' => $this->user->phone,
             ],
         ];
     }
