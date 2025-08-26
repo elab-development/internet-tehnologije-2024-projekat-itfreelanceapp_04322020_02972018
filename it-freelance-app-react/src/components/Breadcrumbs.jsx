@@ -7,6 +7,21 @@ import HomeIcon from '@mui/icons-material/Home';
 const Breadcrumbs = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  // location.pathname --> "/gigs"
+  // nakon .split('/') --> ["", "gigs"] 
+  //###############################################
+  // Boolean kategorizacija u JS-u:
+  // 1) Falsy --> "", false, 0, null i undefined
+  // 2) Truthy --> sve sto nije falsy
+  //###############################################
+  // .filter radi sledece --> ako je x tj. element iz niza na kom smo truthy value zadrzi ga
+  // a ako nije izbaci ga iz niza
+  // dakle od ["", "gigs"] --> ["gigs"]
+  //###############################################
+  // drugi primer --> "http://localhost:3000/gigs/15"
+  // location.pathname --> "/gigs/15"
+  //.split("/") --> ["", "gigs", "15"]
+  //.filter(x => x) --> ["gigs", "15"]
   const pathnames = location.pathname.split('/').filter(x => x);
 
   // Mapping for prettier path segments
@@ -96,6 +111,17 @@ const Breadcrumbs = () => {
           Home
         </Link>
         
+        {/*
+        
+        ["gigs", "15"] uzimamo ovaj niz za pathnames
+           0,     1    indeksi
+        pathnames.length = 2 --> 2-1 = 1   
+
+        to nakon slice --> "/gigs/"
+
+        
+        
+        */}
         {pathnames.map((value, index) => {
           const last = index === pathnames.length - 1;
           const to = `/${pathnames.slice(0, index + 1).join('/')}`;

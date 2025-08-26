@@ -81,6 +81,9 @@ const Navigation = () => {
   if (!user) return null;
 
   const NavButton = ({ children, path }) => {
+    // TIPOVI POREDJENJA U JS-u:
+    // 1) === --> striktno poredjenje, tj. 1 i "1" nisu isto, Number je razlicito od String tipa podataka
+    // 2) == --> nestriktno poredjenje, tj. 1 i "1" su isto, Number i String tipovi se ne porede, tretiraju se isto
     const isActive = location.pathname === path;
     return (
       <Button
