@@ -10,7 +10,8 @@ import {
   Divider,
   Alert,
   Card,
-  CardContent
+  CardContent,
+  Button
 } from '@mui/material';
 import { Player } from '@lottiefiles/react-lottie-player';
 import animationData from '../../animations/animation5.json';
@@ -20,12 +21,16 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PendingIcon from '@mui/icons-material/Pending';
 import CancelIcon from '@mui/icons-material/Cancel';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import Weather from '../../components/Weather';
 
 const AppMetrics = () => {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // NEW: exporting state
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     const fetchMetrics = async () => {
@@ -68,6 +73,46 @@ const AppMetrics = () => {
     return Math.round((value / total) * 100);
   };
 
+  // NEW: export handler (uses existing route)
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      const token = sessionStorage.getItem('token');
+      if (!token) throw new Error('Not authenticated');
+
+      const res = await fetch('http://127.0.0.1:8000/api/admin/orders/export', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        let msg = 'Failed to export orders';
+        try {
+          const errJson = await res.json();
+          msg = errJson.message || errJson.error || msg;
+        } catch (_) {}
+        throw new Error(msg);
+      }
+
+      // Download the Excel file
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'orders.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export error:', err);
+      alert(`Error: ${err.message}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <Box
       sx={{
@@ -106,25 +151,48 @@ const AppMetrics = () => {
         flexDirection: 'column',
         alignItems: 'center'
       }}>
-        <Typography 
-          variant="h3" 
-          component="h1" 
-          sx={{ 
-            fontWeight: 'bold',
-            mb: 4,
-            color: '#000',
-            borderBottom: '2px solid #000',
-            pb: 2,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            width: '100%',
-            justifyContent: 'center'
-          }}
-        >
-          <AssessmentIcon fontSize="large" />
-          Platform Metrics
-        </Typography>
+        {/* Title + Export button (button positioned to the right) */}
+        <Box sx={{ position: 'relative', width: '100%' }}>
+          <Typography 
+            variant="h3" 
+            component="h1" 
+            sx={{ 
+              fontWeight: 'bold',
+              mb: 4,
+              color: '#000',
+              borderBottom: '2px solid #000',
+              pb: 2,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              width: '100%',
+              justifyContent: 'center'
+            }}
+          >
+            <AssessmentIcon fontSize="large" />
+            Platform Metrics
+          </Typography>
+
+          {/* NEW: Export button aligned to the right of the header */}
+          <Box sx={{ position: 'absolute', right: 0, top: 8 }}>
+            <Button
+              onClick={handleExport}
+              startIcon={<FileDownloadIcon />}
+              disabled={exporting}
+              sx={{
+                backgroundColor: '#000',
+                color: '#fff',
+                fontWeight: 'bold',
+                textTransform: 'none',
+                px: 2.5,
+                py: 1,
+                '&:hover': { backgroundColor: '#333' }
+              }}
+            >
+              {exporting ? 'Exporting…' : 'Export Orders'}
+            </Button>
+          </Box>
+        </Box>
 
         {loading && (
           <Box sx={{ width: '100%', mt: 4 }}>
@@ -431,4 +499,4 @@ const AppMetrics = () => {
   );
 };
 
-export default AppMetrics; 
+export default AppMetrics;
