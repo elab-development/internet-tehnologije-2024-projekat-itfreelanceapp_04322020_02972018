@@ -15,7 +15,6 @@ import {
   Button,
   Skeleton,
   Alert,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -23,7 +22,6 @@ import {
   DialogActions
 } from '@mui/material';
 import { Player } from '@lottiefiles/react-lottie-player';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -78,66 +76,13 @@ const SellerOrders = () => {
     fetchOrders();
   }, [fetchOrders]);
 
-  const goBack = () => {
-    navigate('/seller-home');
-  };
+  const goBack = () => navigate('/seller-home');
 
   const openDialog = (orderId, status, title) => {
-    setDialog({
-      open: true,
-      orderId,
-      status,
-      title
-    });
+    setDialog({ open: true, orderId, status, title });
   };
 
-  const closeDialog = () => {
-    setDialog({
-      ...dialog,
-      open: false
-    });
-  };
-
-  const handleUpdateStatus = async () => {
-    try {
-      setActionLoading(true);
-      const token = sessionStorage.getItem('token');
-
-      if (!token) {
-        navigate('/auth');
-        return;
-      }
-
-      const response = await fetch(`http://127.0.0.1:8000/api/orders/${dialog.orderId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ status: dialog.status })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update order status');
-      }
-
-      // Update the local state to reflect the change
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === dialog.orderId ? { ...order, status: dialog.status } : order
-        )
-      );
-
-      closeDialog();
-      alert(`Order status has been updated to ${dialog.status}`);
-    } catch (err) {
-      console.error('Error updating order status:', err);
-      alert(`Error: ${err.message}`);
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  const closeDialog = () => setDialog(prev => ({ ...prev, open: false }));
 
   const getStatusChip = (status) => {
     switch (status) {
@@ -183,6 +128,60 @@ const SellerOrders = () => {
             }}
           />
         );
+    }
+  };
+
+  const handleUpdateStatus = async () => {
+    try {
+      setActionLoading(true);
+      const token = sessionStorage.getItem('token');
+
+      if (!token) {
+        navigate('/auth');
+        return;
+      }
+
+      const response = await fetch(`http://127.0.0.1:8000/api/orders/${dialog.orderId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ status: dialog.status })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update order status');
+      }
+
+      // Reflect changes locally:
+      setOrders(prevOrders => {
+        const updated = prevOrders.map(order =>
+          order.id === dialog.orderId ? { ...order, status: dialog.status } : order
+        );
+
+        // If we completed one order, cancel other orders for the same gig in UI
+        if (dialog.status === 'completed') {
+          const completedOrder = prevOrders.find(o => o.id === dialog.orderId);
+          if (completedOrder?.gig?.id) {
+            return updated.map(o =>
+              o.gig?.id === completedOrder.gig.id && o.id !== dialog.orderId
+                ? { ...o, status: 'cancelled' }
+                : o
+            );
+          }
+        }
+        return updated;
+      });
+
+      closeDialog();
+      alert(`Order status has been updated to ${dialog.status}`);
+    } catch (err) {
+      console.error('Error updating order status:', err);
+      alert(`Error: ${err.message}`);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -258,7 +257,6 @@ const SellerOrders = () => {
       </Box>
 
       <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-        {/* Title */}
         <Typography 
           variant="h4" 
           component="h1" 
@@ -320,10 +318,12 @@ const SellerOrders = () => {
                     <TableCell sx={{ fontWeight: 'bold', color: '#000' }}>#{order.id}</TableCell>
                     <TableCell sx={{ color: '#000' }}>{order.gig.title}</TableCell>
                     <TableCell sx={{ color: '#000' }}>{order.buyer.name}</TableCell>
-                    <TableCell sx={{ color: '#000', fontWeight: 'bold' }}>${order.gig.price}</TableCell>
+                    <TableCell sx={{ color: '#000', fontWeight: 'bold' }}>
+                      ${Number(order?.price ?? order?.gig?.price ?? 0).toFixed(2)}
+                    </TableCell>
                     <TableCell>{getStatusChip(order.status)}</TableCell>
                     <TableCell>
-                      {order.status === 'pending' && (
+                      {order.status === 'pending' ? (
                         <Box sx={{ display: 'flex', gap: 1 }}>
                           <Button
                             size="small"
@@ -352,8 +352,7 @@ const SellerOrders = () => {
                             Cancel
                           </Button>
                         </Box>
-                      )}
-                      {order.status !== 'pending' && (
+                      ) : (
                         <Typography variant="body2" color="text.secondary">
                           No actions available
                         </Typography>
@@ -380,7 +379,7 @@ const SellerOrders = () => {
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
             {dialog.status === 'completed' ? 
-              "Are you sure you want to mark this order as completed? This indicates that you've delivered the work to the buyer's satisfaction." :
+              "Are you sure you want to mark this order as completed? This will lock this bid as the winning price." :
               "Are you sure you want to cancel this order? This action cannot be undone."
             }
           </DialogContentText>
@@ -409,4 +408,4 @@ const SellerOrders = () => {
   );
 };
 
-export default SellerOrders; 
+export default SellerOrders;
