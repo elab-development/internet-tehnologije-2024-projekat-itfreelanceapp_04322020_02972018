@@ -15,11 +15,15 @@ import {
   Button,
   Skeleton,
   Alert,
-  IconButton
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Rating
 } from '@mui/material';
 import { Player } from '@lottiefiles/react-lottie-player';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import VisibilityIcon from '@mui/icons-material/Visibility';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -31,6 +35,13 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userType, setUserType] = useState(null);
+
+  // Review modal state
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [activeOrder, setActiveOrder] = useState(null); // store whole order so we have gig.id or gig_id
+  const [ratingValue, setRatingValue] = useState(0);
+  const [feedback, setFeedback] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -55,7 +66,7 @@ const Orders = () => {
         }
 
         const data = await response.json();
-        setOrders(data.data); // Assuming the API response has a data property
+        setOrders(data.data); // API returns { data: [...] }
         setLoading(false);
       } catch (err) {
         console.error('Error fetching orders:', err);
@@ -72,10 +83,6 @@ const Orders = () => {
     const userInfo = JSON.parse(sessionStorage.getItem('user') || '{}');
     setUserType(userInfo.user_type || null);
   }, []);
-
-  const handleOrderDetail = (id) => {
-    navigate(`/orders/${id}`);
-  };
 
   const goBack = () => {
     navigate('/gigs');
@@ -127,6 +134,78 @@ const Orders = () => {
         );
     }
   };
+
+  // ----- Review modal handlers -----
+  const openReview = (order) => {
+    setActiveOrder(order);
+    setRatingValue(order?.gig?.rating ? Number(order.gig.rating) : 0); // prefill if you already include it
+    setFeedback(order?.gig?.feedback || '');
+    setReviewOpen(true);
+  };
+
+  const closeReview = () => {
+    setReviewOpen(false);
+    setActiveOrder(null);
+    setRatingValue(0);
+    setFeedback('');
+  };
+
+  const submitReview = async () => {
+    try {
+      setSubmittingReview(true);
+      const token = sessionStorage.getItem('token');
+      if (!token) {
+        navigate('/auth');
+        return;
+      }
+
+      // Use the route mapped to GigController@updateRatingFeedback
+      // PATCH /api/gigs/{id}/rating
+      const gigId = activeOrder?.gig?.id ?? activeOrder?.gig_id;
+      if (!gigId) {
+        alert('Error: gig id is missing for this order.');
+        setSubmittingReview(false);
+        return;
+      }
+
+      const response = await fetch(`http://127.0.0.1:8000/api/gigs/${gigId}/rating`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          rating: ratingValue,
+          feedback: feedback
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to submit review');
+      }
+
+      alert('Thank you! Your review has been submitted.');
+
+      // Optional: reflect new rating/feedback in current table row
+      setOrders(prev =>
+        prev.map(o =>
+          o.id === activeOrder.id
+            ? { ...o, gig: { ...(o.gig || {}), id: gigId, rating: ratingValue, feedback } }
+            : o
+        )
+      );
+
+      closeReview();
+    } catch (err) {
+      console.error('Error submitting review:', err);
+      alert(`Error: ${err.message}`);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+  // ---------------------------------
 
   if (loading) {
     return (
@@ -245,6 +324,8 @@ const Orders = () => {
                   <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Seller</TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Price</TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Status</TableCell>
+                  {/* New Actions column header */}
+                  <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -261,6 +342,29 @@ const Orders = () => {
                     <TableCell sx={{ color: '#000' }}>{order.seller.name}</TableCell>
                     <TableCell sx={{ color: '#000', fontWeight: 'bold' }}>${order.gig.price}</TableCell>
                     <TableCell>{getStatusChip(order.status)}</TableCell>
+
+                    {/* New Actions cell: Leave a Review only for completed */}
+                    <TableCell sx={{ color: '#000' }}>
+                      {order.status === 'completed' ? (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => openReview(order)}
+                          sx={{
+                            borderWidth: 2,
+                            fontWeight: 'bold',
+                            textTransform: 'none',
+                            '&:hover': { borderWidth: 2 }
+                          }}
+                        >
+                          Leave a Review
+                        </Button>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          —
+                        </Typography>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -268,8 +372,62 @@ const Orders = () => {
           </TableContainer>
         )}
       </Container>
+
+      {/* Review Dialog */}
+      <Dialog open={reviewOpen} onClose={closeReview} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Leave a Review</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body2" sx={{ mb: 1, color: '#000' }}>
+            Rating
+          </Typography>
+          <Rating
+            name="order-rating"
+            value={ratingValue}
+            onChange={(_, newValue) => setRatingValue(newValue || 0)}
+            precision={0.5}
+            sx={{
+              mb: 2,
+              '& .MuiRating-iconFilled': { color: '#000' }
+            }}
+          />
+          <TextField
+            label="Feedback"
+            multiline
+            rows={4}
+            fullWidth
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            placeholder="Share your experience with this order..."
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button 
+            onClick={closeReview}
+            sx={{ 
+              color: '#000',
+              '&:hover': { backgroundColor: 'rgba(0,0,0,0.05)' }
+            }}
+            disabled={submittingReview}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={submitReview}
+            variant="contained"
+            disabled={submittingReview || ratingValue === 0 || !activeOrder}
+            sx={{
+              backgroundColor: '#000',
+              color: '#fff',
+              '&:hover': { backgroundColor: '#333' }
+            }}
+          >
+            {submittingReview ? 'Submitting...' : 'Submit Review'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
 
-export default Orders; 
+export default Orders;

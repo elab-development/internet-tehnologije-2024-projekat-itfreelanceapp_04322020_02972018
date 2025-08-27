@@ -538,18 +538,14 @@ const MyGigs = () => {
                         </IconButton>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        {gig.rating && (
-                          <Typography 
-                            variant="body2" 
-                            sx={{ 
-                              mr: 2,
-                              fontWeight: 'bold',
-                              color: '#000'
-                            }}
-                          >
-                            ★ {gig.rating.toFixed(1)}
-                          </Typography>
-                        )}
+                        {Number.isFinite(Number(gig.rating)) && (
+                            <Typography
+                              variant="body2"
+                              sx={{ mr: 2, fontWeight: 'bold', color: '#000' }}
+                            >
+                              ★ {Number(gig.rating).toFixed(1)}
+                            </Typography>
+                          )}
                       </Box>
                     </CardActions>
                   </Card>
