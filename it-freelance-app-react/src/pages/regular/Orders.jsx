@@ -23,7 +23,6 @@ import {
   Rating
 } from '@mui/material';
 import { Player } from '@lottiefiles/react-lottie-player';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -38,7 +37,7 @@ const Orders = () => {
 
   // Review modal state
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [activeOrder, setActiveOrder] = useState(null); // store whole order so we have gig.id or gig_id
+  const [activeOrder, setActiveOrder] = useState(null);
   const [ratingValue, setRatingValue] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
@@ -66,7 +65,7 @@ const Orders = () => {
         }
 
         const data = await response.json();
-        setOrders(data.data); // API returns { data: [...] }
+        setOrders(data.data);
         setLoading(false);
       } catch (err) {
         console.error('Error fetching orders:', err);
@@ -79,14 +78,11 @@ const Orders = () => {
   }, [navigate]);
 
   useEffect(() => {
-    // Get user type from session storage
     const userInfo = JSON.parse(sessionStorage.getItem('user') || '{}');
     setUserType(userInfo.user_type || null);
   }, []);
 
-  const goBack = () => {
-    navigate('/gigs');
-  };
+  const goBack = () => navigate('/gigs');
 
   const getStatusChip = (status) => {
     switch (status) {
@@ -135,10 +131,10 @@ const Orders = () => {
     }
   };
 
-  // ----- Review modal handlers -----
+  // Review modal handlers
   const openReview = (order) => {
     setActiveOrder(order);
-    setRatingValue(order?.gig?.rating ? Number(order.gig.rating) : 0); // prefill if you already include it
+    setRatingValue(order?.gig?.rating ? Number(order.gig.rating) : 0);
     setFeedback(order?.gig?.feedback || '');
     setReviewOpen(true);
   };
@@ -159,8 +155,6 @@ const Orders = () => {
         return;
       }
 
-      // Use the route mapped to GigController@updateRatingFeedback
-      // PATCH /api/gigs/{id}/rating
       const gigId = activeOrder?.gig?.id ?? activeOrder?.gig_id;
       if (!gigId) {
         alert('Error: gig id is missing for this order.');
@@ -188,7 +182,6 @@ const Orders = () => {
 
       alert('Thank you! Your review has been submitted.');
 
-      // Optional: reflect new rating/feedback in current table row
       setOrders(prev =>
         prev.map(o =>
           o.id === activeOrder.id
@@ -205,7 +198,6 @@ const Orders = () => {
       setSubmittingReview(false);
     }
   };
-  // ---------------------------------
 
   if (loading) {
     return (
@@ -324,7 +316,6 @@ const Orders = () => {
                   <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Seller</TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Price</TableCell>
                   <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Status</TableCell>
-                  {/* New Actions column header */}
                   <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -340,10 +331,11 @@ const Orders = () => {
                     <TableCell sx={{ fontWeight: 'bold', color: '#000' }}>#{order.id}</TableCell>
                     <TableCell sx={{ color: '#000' }}>{order.gig.title}</TableCell>
                     <TableCell sx={{ color: '#000' }}>{order.seller.name}</TableCell>
-                    <TableCell sx={{ color: '#000', fontWeight: 'bold' }}>${order.gig.price}</TableCell>
+                    <TableCell sx={{ color: '#000', fontWeight: 'bold' }}>
+                      ${Number(order?.price ?? order?.gig?.price ?? 0).toFixed(2)}
+                    </TableCell>
                     <TableCell>{getStatusChip(order.status)}</TableCell>
 
-                    {/* New Actions cell: Leave a Review only for completed */}
                     <TableCell sx={{ color: '#000' }}>
                       {order.status === 'completed' ? (
                         <Button

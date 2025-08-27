@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Box, 
@@ -14,11 +14,15 @@ import {
   Avatar,
   Stack,
   IconButton,
-  Link
+  Link,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField
 } from '@mui/material';
 import { Player } from '@lottiefiles/react-lottie-player';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
@@ -29,28 +33,89 @@ import animationData from '../../animations/animation3.json';
 const GigDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+
   const [gig, setGig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [orderLoading, setOrderLoading] = useState(false);
-  const [orderSuccess, setOrderSuccess] = useState(false);
-  const [orderError, setOrderError] = useState(null);
-  
+
+  // Bidding (licitation) state
+  const [bidOpen, setBidOpen] = useState(false);
+  const [placingBid, setPlacingBid] = useState(false);
+  const [bid, setBid] = useState('');
+  const [bidError, setBidError] = useState('');
+  const [bidsSummary, setBidsSummary] = useState({
+    highestBid: null,     // number
+    leaderName: null,     // string
+    isLocked: false,      // boolean
+    winnerName: null,     // string
+    winnerPrice: null     // number
+  });
+
+  const token = useMemo(() => sessionStorage.getItem('token'), []);
+
+  // Helpers to parse differently-shaped API payloads safely
+  const parseSummary = (payload) => {
+    if (!payload || typeof payload !== 'object') {
+      return { highestBid: null, leaderName: null, isLocked: false, winnerName: null, winnerPrice: null };
+    }
+
+    // Highest bid amount
+    const highestBid =
+      payload.highest_bid ??
+      payload.max_bid ??
+      payload.max_price ??
+      payload.highest ??
+      payload.price ??
+      payload.amount ??
+      null;
+
+    // Leader name (the current highest bidder)
+    const leaderName =
+      payload.leader_name ??
+      payload.highest_bidder_name ??
+      payload.buyer_name ??
+      payload.bidder_name ??
+      payload.leader?.name ??
+      payload.highest_bidder?.name ??
+      payload.buyer?.name ??
+      null;
+
+    // Locked / winner info
+    const isLocked = !!(payload.is_locked ?? payload.locked);
+    const winnerName =
+      payload.winner_name ??
+      payload.winner?.name ??
+      null;
+    const winnerPrice =
+      payload.winner_price ??
+      payload.winning_price ??
+      null;
+
+    return {
+      highestBid: (highestBid != null ? Number(highestBid) : null),
+      leaderName,
+      isLocked,
+      winnerName,
+      winnerPrice: (winnerPrice != null ? Number(winnerPrice) : null)
+    };
+  };
+
+  // Fetch gig
   useEffect(() => {
     const fetchGigDetails = async () => {
       try {
         setLoading(true);
-        const token = sessionStorage.getItem('token');
-        
+
         if (!token) {
           navigate('/auth');
           return;
         }
-        
+
         const response = await fetch(`http://127.0.0.1:8000/api/gigs/${id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
           }
         });
         
@@ -60,65 +125,144 @@ const GigDetails = () => {
         
         const data = await response.json();
         setGig(data.data);
-        setLoading(false);
       } catch (err) {
         console.error('Error fetching gig details:', err);
         setError(err.message);
+      } finally {
         setLoading(false);
       }
     };
     
     fetchGigDetails();
-  }, [id, navigate]);
-  
-  const handleGoBack = () => {
-    navigate('/gigs');
+  }, [id, navigate, token]);
+
+  // Try to fetch a bidding summary for this gig.
+  // 1) /gigs/:id/bids-summary (preferred)
+  // 2) /orders/highest?gig_id=:id (fallback A)
+  // 3) /orders/highest/:id     (fallback B)
+  const fetchBidsSummary = async () => {
+    if (!token) return;
+
+    const tryFetch = async (url) => {
+      try {
+        const res = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+        if (!res.ok) return null;
+        return await res.json();
+      } catch {
+        return null;
+      }
+    };
+
+    // Preferred
+    let payload = await tryFetch(`http://127.0.0.1:8000/api/gigs/${id}/bids-summary`);
+
+    // Fallback A
+    if (!payload) {
+      payload = await tryFetch(`http://127.0.0.1:8000/api/orders/highest?gig_id=${id}`);
+    }
+
+    // Fallback B
+    if (!payload) {
+      payload = await tryFetch(`http://127.0.0.1:8000/api/orders/highest/${id}`);
+    }
+
+    if (payload) {
+      setBidsSummary(prev => ({ ...prev, ...parseSummary(payload) }));
+    } else {
+      // If nothing works, keep defaults (means "no bids yet")
+      setBidsSummary(prev => ({ ...prev, highestBid: null, leaderName: null }));
+    }
   };
-  
-  const handleOrder = async () => {
+
+  // Load summary on page enter
+  useEffect(() => {
+    fetchBidsSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, token]);
+
+  const handleGoBack = () => navigate('/gigs');
+
+  const openBidDialog = async () => {
+    setBidError('');
+    // Always refresh the summary right before opening (latest highest / leader)
+    await fetchBidsSummary();
+
+    const min = Math.max(
+      Number(gig?.price || 0),
+      bidsSummary.highestBid ? Number(bidsSummary.highestBid) : 0
+    );
+    const suggested = bidsSummary.highestBid ? (min + 1) : min;
+    setBid(String(suggested || ''));
+    setBidOpen(true);
+  };
+
+  const closeBidDialog = () => {
+    setBidOpen(false);
+    setBid('');
+    setBidError('');
+  };
+
+  const placeBid = async () => {
     try {
-      setOrderLoading(true);
-      setOrderError(null);
-      setOrderSuccess(false);
-      
-      const token = sessionStorage.getItem('token');
-      
+      setPlacingBid(true);
+      setBidError('');
+
       if (!token) {
         navigate('/auth');
         return;
       }
-      
-      const response = await fetch('http://127.0.0.1:8000/api/orders', {
+
+      const numericBid = Number(bid);
+      const min = Math.max(
+        Number(gig?.price || 0),
+        bidsSummary.highestBid ? Number(bidsSummary.highestBid) : 0
+      );
+
+      if (!Number.isFinite(numericBid) || numericBid <= 0) {
+        setBidError('Please enter a valid bid.');
+        setPlacingBid(false);
+        return;
+      }
+      if (numericBid < min) {
+        setBidError(`Your bid must be at least $${min.toFixed(2)}.`);
+        setPlacingBid(false);
+        return;
+      }
+
+      const res = await fetch('http://127.0.0.1:8000/api/orders', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({
           gig_id: gig.id,
-          price: gig.price,
-          delivery_time: gig.delivery_time
+          price: numericBid
         })
       });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to place order');
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.message || data?.error || 'Failed to place bid');
       }
-      
-      setOrderSuccess(true);
-      alert(`Order placed successfully! Your order for "${gig.title}" has been created.`);
-      
+
+      alert('Your bid has been placed!');
+      closeBidDialog();
+      await fetchBidsSummary(); // refresh highest
     } catch (err) {
-      console.error('Error placing order:', err);
-      setOrderError(err.message);
+      console.error('Bid error:', err);
       alert(`Error: ${err.message}`);
     } finally {
-      setOrderLoading(false);
+      setPlacingBid(false);
     }
   };
-  
+
   if (loading) {
     return (
       <Container maxWidth="lg" sx={{ py: 8 }}>
@@ -188,6 +332,11 @@ const GigDetails = () => {
     ? (rawGithub.startsWith('http://') || rawGithub.startsWith('https://') ? rawGithub : `https://${rawGithub}`)
     : null;
   const phone = gig?.user?.phone || '';
+
+  const isLocked = bidsSummary.isLocked;
+  const winnerText = isLocked && bidsSummary.winnerName
+    ? `Winner: ${bidsSummary.winnerName} ($${Number(bidsSummary.winnerPrice || 0).toFixed(2)})`
+    : null;
 
   return (
     <Box
@@ -428,7 +577,7 @@ const GigDetails = () => {
                     Professional {gig.category} Expert
                   </Typography>
 
-                  {/* New: GitHub link + phone */}
+                  {/* GitHub + phone */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
                     <IconButton
                       component={githubUrl ? 'a' : 'button'}
@@ -494,6 +643,66 @@ const GigDetails = () => {
                     ${gig.price}
                   </Typography>
                 </Box>
+
+                {bidsSummary.highestBid && !isLocked ? (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'baseline',
+                          marginTop: 6,
+                          marginBottom: 8
+                        }}>
+                          {/* Reserve a small lane for the label so the price doesn't hug it */}
+                          <span style={{
+                            color: '#000',
+                            fontSize: 14,
+                            flex: '0 0 140px',   // <-- increase/decrease this to tune spacing (e.g. 120–160)
+                            whiteSpace: 'nowrap'
+                          }}>
+                            Current Highest
+                          </span>
+
+                          <span style={{
+                            color: '#000',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            marginLeft: 12       // <-- extra gap right after the label
+                          }}>
+                            <span>
+                              ${Number(bidsSummary.highestBid).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              })}
+                            </span>
+
+                            {bidsSummary.leaderName && (
+                              <>
+                                <span style={{ opacity: 0.35, margin: '0 8px' }}>•</span>
+                                <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                  {bidsSummary.leaderName}
+                                </span>
+                              </>
+                            )}
+                          </span>
+                        </div>
+                ) : (
+                  !isLocked && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body1" sx={{ color: '#000' }}>Current Highest</Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#000' }}>
+                        No bids yet
+                      </Typography>
+                    </Box>
+                  )
+                )}
+                
+                {isLocked && (
+                  <Box sx={{ p: 1.5, border: '1px dashed #000', borderRadius: 1 }}>
+                    <Typography variant="body2" sx={{ color: '#000', fontWeight: 'bold' }}>
+                      {winnerText || 'Bidding locked'}
+                    </Typography>
+                  </Box>
+                )}
                 
                 <Divider sx={{ borderColor: '#000', borderWidth: '1px' }} />
                 
@@ -508,8 +717,8 @@ const GigDetails = () => {
                   variant="contained"
                   size="large"
                   fullWidth
-                  onClick={handleOrder}
-                  disabled={orderLoading}
+                  onClick={openBidDialog}
+                  disabled={isLocked}
                   sx={{
                     backgroundColor: '#000',
                     color: '#fff',
@@ -520,7 +729,7 @@ const GigDetails = () => {
                     }
                   }}
                 >
-                  {orderLoading ? 'Processing...' : 'Order Now'}
+                  {isLocked ? 'Bidding Locked' : 'Order Now'}
                 </Button>
                 
                 <Box sx={{ display: 'flex', justifyContent: 'center' }}>
@@ -533,6 +742,61 @@ const GigDetails = () => {
           </Grid>
         </Grid>
       </Container>
+
+      {/* Bid Dialog */}
+      <Dialog open={bidOpen} onClose={closeBidDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>Place Your Bid</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body2" sx={{ color: '#000', mb: 1.5 }}>
+            Base price: <strong>${Number(gig.price).toFixed(2)}</strong>
+          </Typography>
+          {bidsSummary.highestBid ? (
+            <Typography variant="body2" sx={{ color: '#000', mb: 1 }}>
+              Current highest bid: <strong>${Number(bidsSummary.highestBid).toFixed(2)}</strong>
+              {bidsSummary.leaderName ? ` by ${bidsSummary.leaderName}` : ''}
+            </Typography>
+          ) : (
+            <Typography variant="body2" sx={{ color: '#000', mb: 1.5 }}>
+              No bids yet — be the first!
+            </Typography>
+          )}
+          <TextField
+            type="number"
+            label="Your bid ($)"
+            fullWidth
+            value={bid}
+            onChange={(e) => setBid(e.target.value)}
+            margin="dense"
+            inputProps={{ min: 0, step: '0.01' }}
+            error={!!bidError}
+            helperText={bidError || 'Enter a value >= base / highest'}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button 
+            onClick={closeBidDialog}
+            sx={{ 
+              color: '#000',
+              '&:hover': { backgroundColor: 'rgba(0,0,0,0.05)' }
+            }}
+            disabled={placingBid}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={placeBid}
+            variant="contained"
+            disabled={placingBid}
+            sx={{
+              backgroundColor: '#000',
+              color: '#fff',
+              '&:hover': { backgroundColor: '#333' }
+            }}
+          >
+            {placingBid ? 'Placing...' : 'Place Bid'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
