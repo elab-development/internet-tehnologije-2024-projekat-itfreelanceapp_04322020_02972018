@@ -24,12 +24,24 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import Weather from '../../components/Weather';
 
+// ⬇️ Recharts (one diagram)
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Legend,
+} from 'recharts';
+
 const AppMetrics = () => {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // NEW: exporting state
+  // Exporting state
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -73,7 +85,7 @@ const AppMetrics = () => {
     return Math.round((value / total) * 100);
   };
 
-  // NEW: export handler (uses existing route)
+  // Export handler (uses existing route)
   const handleExport = async () => {
     try {
       setExporting(true);
@@ -113,6 +125,15 @@ const AppMetrics = () => {
     }
   };
 
+  // Data for the single chart (orders by status)
+  const barData = metrics
+    ? [
+        { status: 'Completed', count: metrics.completed_orders || 0 },
+        { status: 'Pending',   count: metrics.pending_orders   || 0 },
+        { status: 'Cancelled', count: metrics.cancelled_orders || 0 },
+      ]
+    : [];
+
   return (
     <Box
       sx={{
@@ -151,7 +172,7 @@ const AppMetrics = () => {
         flexDirection: 'column',
         alignItems: 'center'
       }}>
-        {/* Title + Export button (button positioned to the right) */}
+        {/* Title + Export button */}
         <Box sx={{ position: 'relative', width: '100%' }}>
           <Typography 
             variant="h3" 
@@ -173,7 +194,6 @@ const AppMetrics = () => {
             Platform Metrics
           </Typography>
 
-          {/* NEW: Export button aligned to the right of the header */}
           <Box sx={{ position: 'absolute', right: 0, top: 8 }}>
             <Button
               onClick={handleExport}
@@ -489,6 +509,43 @@ const AppMetrics = () => {
                       </Paper>
                     </Grid>
                   </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* ⬇️ NEW: Single diagram with Recharts */}
+            <Grid item xs={12}>
+              <Card
+                elevation={0}
+                sx={{
+                  borderRadius: 4,
+                  border: '2px solid #000',
+                  transition: 'transform 0.3s ease',
+                  '&:hover': { transform: 'translateY(-5px)' }
+                }}
+              >
+                <CardContent sx={{ p: 3 }}>
+                  <Typography variant="h5" fontWeight="bold" mb={1}>
+                    Orders by Status
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" mb={2}>
+                    A quick comparison of completed, pending, and cancelled orders.
+                  </Typography>
+                  <Box sx={{ width: '100%', height: 280 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={barData}
+                        margin={{ top: 8, right: 16, left: -8, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+                        <XAxis dataKey="status" tick={{ fill: '#000' }} />
+                        <YAxis allowDecimals={false} tick={{ fill: '#000' }} />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="count" name="Orders" fill="#000" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
