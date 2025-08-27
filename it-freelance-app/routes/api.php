@@ -8,6 +8,13 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
 
+    // Bids summary preferred by the UI
+    Route::get('/gigs/{id}/bids-summary', [OrderController::class, 'bidsSummary']);
+
+    // Fallbacks used by the UI if the above is not present
+    Route::get('/orders/highest', [OrderController::class, 'highest']);           // ?gig_id=123
+    Route::get('/orders/highest/{gigId}', [OrderController::class, 'highest']);  // /orders/highest/123
+
     Route::get('/gigs', [GigController::class, 'index']);
     Route::get('/gigs/{id}', [GigController::class, 'show']);
     Route::post('/gigs', [GigController::class, 'store']);

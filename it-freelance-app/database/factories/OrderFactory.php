@@ -17,29 +17,34 @@ class OrderFactory extends Factory
      *
      * @var string
      */
-    protected $model = Order::class;
+   protected $model = Order::class;
 
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
-
+        // Try to relate to an existing gig (often provided by seeder)
         $gig = Gig::inRandomOrder()->first();
-        $seller = $gig->user;
 
-        $buyer = User::where('id', '!=', $seller->id)
-            ->where('user_type', '!=', 'administrator')
-            ->inRandomOrder()
-            ->first();
+        // Find a buyer user; ensure not the gig owner
+        $buyer = User::where('user_type', 'buyer')->inRandomOrder()->first();
+
+        // Fallback base price if no gig is available yet
+        $basePrice = $gig ? (float) $gig->price : 100;
+
+        // Bid: random +5%..+50% on base
+        $multiplier = $this->faker->randomFloat(2, 1.05, 1.5);
+        $bid = round($basePrice * $multiplier, 2);
+
+        // Status: default pending (licitations)
+        $status = $this->faker->randomElement(['pending', 'pending', 'pending', 'cancelled']);
 
         return [
-            'status' => $this->faker->randomElement(['pending', 'completed', 'cancelled']),
-            'gig_id' => $gig->id,
-            'buyer_id' => $buyer->id,
-            'seller_id' => $seller->id,
+            'status'     => $status,
+            'price'      => $bid,
+            'gig_id'     => $gig?->id,
+            'buyer_id'   => $buyer?->id,
+            'seller_id'  => $gig?->user_id,
+            'is_winner'  => false,
+            'locked_at'  => null,
         ];
     }
 }
