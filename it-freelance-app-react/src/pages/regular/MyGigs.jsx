@@ -36,13 +36,20 @@ const MyGigs = () => {
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Create dialog
   const [openDialog, setOpenDialog] = useState(false);
+
+  // Edit dialog
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingGig, setEditingGig] = useState(null);
+
   const [categories] = useState([
     'Web Development', 'Mobile Development', 'UI/UX Design', 
     'Data Science', 'DevOps', 'Blockchain', 'Game Development'
   ]);
   
-  // Form state
+  // Create form state
   const [formData, setFormData] = useState({
     title: '',
     category: '',
@@ -52,6 +59,17 @@ const MyGigs = () => {
   });
   const [formErrors, setFormErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+
+  // Edit form state
+  const [editData, setEditData] = useState({
+    title: '',
+    price: '',
+    delivery_time: '',
+    description: '',
+    category: '' // shown read-only
+  });
+  const [editErrors, setEditErrors] = useState({});
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   // Memoize animation options for better performance
   const animationOptions = useMemo(() => ({
@@ -121,6 +139,7 @@ const MyGigs = () => {
     }
   }, []);
 
+  // ---------- CREATE ----------
   const handleOpenDialog = useCallback(() => {
     setOpenDialog(true);
     setFormData({
@@ -234,6 +253,7 @@ const MyGigs = () => {
     }
   }, [formData, validateForm, handleCloseDialog, fetchMyGigs]);
 
+  // ---------- DELETE ----------
   const handleDeleteGig = useCallback(async (id) => {
     if (!window.confirm('Are you sure you want to delete this gig?')) {
       return;
@@ -269,6 +289,100 @@ const MyGigs = () => {
       alert(`Error: ${err.message}`);
     }
   }, []);
+
+  // ---------- EDIT ----------
+  const openEditDialog = (gig) => {
+    setEditingGig(gig);
+    setEditData({
+      title: gig.title || '',
+      price: String(gig.price ?? ''),
+      delivery_time: String(gig.delivery_time ?? ''),
+      description: gig.description || '',
+      category: gig.category || '' // shown read-only (backend expects category_id for changes)
+    });
+    setEditErrors({});
+    setEditDialogOpen(true);
+  };
+
+  const closeEditDialog = () => {
+    setEditDialogOpen(false);
+    setEditingGig(null);
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditData(prev => ({ ...prev, [name]: value }));
+    if (editErrors[name]) {
+      setEditErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validateEdit = () => {
+    const errors = {};
+    if (!editData.title.trim()) errors.title = 'Title is required';
+    if (!editData.price) errors.price = 'Price is required';
+    else if (isNaN(editData.price) || Number(editData.price) <= 0) 
+      errors.price = 'Price must be a positive number';
+
+    if (!editData.delivery_time) errors.delivery_time = 'Delivery time is required';
+    else if (isNaN(editData.delivery_time) || Number(editData.delivery_time) <= 0) 
+      errors.delivery_time = 'Delivery time must be a positive number';
+
+    if (!editData.description.trim()) errors.description = 'Description is required';
+    else if (editData.description.length < 10)
+      errors.description = 'Description must be at least 10 characters';
+    return errors;
+  };
+
+  const submitEdit = async () => {
+    const errors = validateEdit();
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors);
+      return;
+    }
+
+    try {
+      setEditSubmitting(true);
+      const token = sessionStorage.getItem('token');
+      if (!token) throw new Error('Authentication required.');
+
+      // Only send fields the backend accepts without category_id
+      const body = {
+        title: editData.title,
+        description: editData.description,
+        price: Number(editData.price),
+        delivery_time: Number(editData.delivery_time)
+      };
+
+      const res = await fetch(`http://127.0.0.1:8000/api/gigs/${editingGig.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || data.error || 'Failed to update gig');
+      }
+
+      // Update list locally to avoid a full refetch
+      setGigs(prev =>
+        prev.map(g => (g.id === editingGig.id ? data.data : g))
+      );
+
+      closeEditDialog();
+      alert('Gig updated successfully!');
+    } catch (err) {
+      console.error('Edit error:', err);
+      alert(`Error: ${err.message}`);
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -527,6 +641,17 @@ const MyGigs = () => {
                     >
                       <Box>
                         <IconButton
+                          aria-label="edit"
+                          onClick={() => openEditDialog(gig)}
+                          sx={{ 
+                            color: '#000',
+                            mr: 1,
+                            '&:hover': { backgroundColor: 'rgba(0,0,0,0.08)' }
+                          }}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
                           aria-label="delete"
                           onClick={() => handleDeleteGig(gig.id)}
                           sx={{ 
@@ -661,8 +786,105 @@ const MyGigs = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Edit Gig Dialog */}
+      <Dialog open={editDialogOpen} onClose={closeEditDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold', borderBottom: '1px solid #eee', pb: 2 }}>
+          Edit Gig
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <TextField
+            name="title"
+            label="Gig Title"
+            fullWidth
+            margin="normal"
+            variant="outlined"
+            value={editData.title}
+            onChange={handleEditChange}
+            error={!!editErrors.title}
+            helperText={editErrors.title}
+          />
+          {/* Show category but keep it read-only to match backend (expects category_id to change) */}
+          <TextField
+            label="Category"
+            fullWidth
+            margin="normal"
+            variant="outlined"
+            value={editData.category}
+            InputProps={{ readOnly: true }}
+            helperText="Category changes are disabled here."
+          />
+          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+            <TextField
+              name="price"
+              label="Price ($)"
+              type="number"
+              InputProps={{ inputProps: { min: 1 } }}
+              fullWidth
+              margin="normal"
+              variant="outlined"
+              value={editData.price}
+              onChange={handleEditChange}
+              error={!!editErrors.price}
+              helperText={editErrors.price}
+            />
+            <TextField
+              name="delivery_time"
+              label="Delivery Time (days)"
+              type="number"
+              InputProps={{ inputProps: { min: 1 } }}
+              fullWidth
+              margin="normal"
+              variant="outlined"
+              value={editData.delivery_time}
+              onChange={handleEditChange}
+              error={!!editErrors.delivery_time}
+              helperText={editErrors.delivery_time}
+            />
+          </Box>
+          <TextField
+            name="description"
+            label="Description"
+            fullWidth
+            multiline
+            rows={4}
+            margin="normal"
+            variant="outlined"
+            value={editData.description}
+            onChange={handleEditChange}
+            error={!!editErrors.description}
+            helperText={editErrors.description}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button 
+            onClick={closeEditDialog}
+            sx={{ 
+              color: '#000',
+              '&:hover': { backgroundColor: 'rgba(0,0,0,0.05)' }
+            }}
+            disabled={editSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={submitEdit}
+            variant="contained"
+            disabled={editSubmitting || !editingGig}
+            sx={{
+              backgroundColor: '#000',
+              color: '#fff',
+              '&:hover': {
+                backgroundColor: '#333',
+              }
+            }}
+          >
+            {editSubmitting ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
 
-export default React.memo(MyGigs); 
+export default React.memo(MyGigs);
